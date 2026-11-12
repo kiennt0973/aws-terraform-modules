@@ -1,4 +1,10 @@
-variable "cluster_name" {
+variable "tags" {
+  description = "Additional tags applied to taggable resources."
+  type        = map(string)
+  default     = {}
+}
+
+variable "cluster_id" {
   type = string
 }
 
@@ -6,8 +12,19 @@ variable "service_name" {
   type = string
 }
 
-variable "container_image" {
-  type = string
+variable "container_definitions" {
+  description = "Rendered ECS container definitions JSON supplied by the caller."
+  type        = string
+}
+
+variable "efs_volume" {
+  description = "Optional EFS access-point volume. Container mountPoints must reference its name."
+  type = object({
+    name            = string
+    file_system_id  = string
+    access_point_id = string
+  })
+  default = null
 }
 
 variable "container_port" {
@@ -49,16 +66,6 @@ variable "execution_role_arn" {
 
 variable "task_role_arn" {
   type = string
-}
-
-variable "log_group_name" {
-  type = string
-}
-
-variable "environment" {
-  description = "Environment variables passed to the container"
-  type        = map(string)
-  default     = {}
 }
 
 variable "assign_public_ip" {

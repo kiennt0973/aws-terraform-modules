@@ -1,5 +1,6 @@
 resource "aws_cognito_user_pool" "this" {
   name = var.user_pool_name
+  tags = merge(var.tags, { Name = var.user_pool_name })
 
   password_policy {
     minimum_length    = 8
@@ -10,6 +11,12 @@ resource "aws_cognito_user_pool" "this" {
   }
 
   auto_verified_attributes = ["email"]
+}
+
+resource "aws_cognito_user_pool_domain" "this" {
+  count        = var.domain_prefix == null ? 0 : 1
+  domain       = var.domain_prefix
+  user_pool_id = aws_cognito_user_pool.this.id
 }
 
 resource "aws_cognito_user_pool_client" "this" {

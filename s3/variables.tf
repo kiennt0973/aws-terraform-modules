@@ -1,3 +1,9 @@
+variable "tags" {
+  description = "Additional tags applied to taggable resources."
+  type        = map(string)
+  default     = {}
+}
+
 variable "bucket_name" {
   type = string
 }

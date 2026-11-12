@@ -7,6 +7,7 @@ data "archive_file" "this" {
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/aws/lambda/${var.function_name}"
   retention_in_days = 30
+  tags              = merge(var.tags, { Name = "${var.function_name}-logs" })
 }
 
 resource "aws_lambda_function" "this" {
@@ -18,6 +19,7 @@ resource "aws_lambda_function" "this" {
   source_code_hash = data.archive_file.this.output_base64sha256
   timeout          = var.timeout
   memory_size      = var.memory_size
+  tags             = merge(var.tags, { Name = var.function_name })
 
   environment {
     variables = var.environment_variables

@@ -2,6 +2,7 @@ resource "aws_iam_role" "this" {
   name               = var.role_name
   path               = var.path
   assume_role_policy = var.assume_role_policy_json
+  tags               = merge(var.tags, { Name = var.role_name })
 }
 
 resource "aws_iam_role_policy_attachment" "managed" {

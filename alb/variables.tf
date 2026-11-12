@@ -1,8 +1,10 @@
-variable "name" {
-  type = string
+variable "tags" {
+  description = "Additional tags applied to taggable resources."
+  type        = map(string)
+  default     = {}
 }
 
-variable "vpc_id" {
+variable "name" {
   type = string
 }
 
@@ -17,16 +19,6 @@ variable "security_group_ids" {
 variable "internal" {
   type    = bool
   default = false
-}
-
-variable "target_port" {
-  type    = number
-  default = 80
-}
-
-variable "health_check_path" {
-  type    = string
-  default = "/"
 }
 
 variable "certificate_arn" {

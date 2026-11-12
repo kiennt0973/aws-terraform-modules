@@ -4,7 +4,7 @@ resource "aws_vpc_endpoint" "s3" {
   vpc_endpoint_type = "Gateway"
   route_table_ids   = var.route_table_ids
 
-  tags = { Name = "s3-gateway-endpoint" }
+  tags = merge(var.tags, { Name = "s3-gateway-endpoint" })
 }
 
 resource "aws_vpc_endpoint" "interface" {
@@ -16,5 +16,5 @@ resource "aws_vpc_endpoint" "interface" {
   security_group_ids  = var.security_group_ids
   private_dns_enabled = true
 
-  tags = { Name = "${each.value}-endpoint" }
+  tags = merge(var.tags, { Name = "${each.value}-endpoint" })
 }

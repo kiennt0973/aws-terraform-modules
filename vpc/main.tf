@@ -1,82 +1,76 @@
 resource "aws_vpc" "this" {
+  for_each = toset([var.vpc_name])
+
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = var.name }
+  tags = merge(var.tags, { Name = var.vpc_name })
 }
 
 resource "aws_internet_gateway" "this" {
-  vpc_id = aws_vpc.this.id
-  tags   = { Name = "${var.name}-igw" }
+  for_each = toset([var.vpc_name])
+
+  vpc_id = aws_vpc.this[each.key].id
+  tags   = merge(var.tags, { Name = "${var.vpc_name}-igw" })
 }
 
-resource "aws_subnet" "public" {
-  count                   = length(var.public_subnet_cidrs)
-  vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = var.azs[count.index]
-  map_public_ip_on_launch = true
+module "subnets" {
+  source   = "./modules/subnets"
+  for_each = toset([var.vpc_name])
 
-  tags = { Name = "${var.name}-public-${var.azs[count.index]}" }
+  name            = var.vpc_name
+  vpc_id          = aws_vpc.this[each.key].id
+  public_subnets  = local.public_subnets
+  private_subnets = local.private_subnets
+  tags            = var.tags
 }
 
-resource "aws_subnet" "private" {
-  count             = length(var.private_subnet_cidrs)
-  vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = var.azs[count.index]
+module "routing" {
+  source   = "./modules/routing"
+  for_each = toset([var.vpc_name])
 
-  tags = { Name = "${var.name}-private-${var.azs[count.index]}" }
+  name                = var.vpc_name
+  vpc_id              = aws_vpc.this[each.key].id
+  internet_gateway_id = aws_internet_gateway.this[each.key].id
+  public_subnet_ids   = module.subnets[each.key].public_subnet_ids
+  private_subnet_ids  = module.subnets[each.key].private_subnet_ids
+  single_nat_gateway  = var.single_nat_gateway
+  primary_az          = var.azs[0]
+  additional_routes   = var.routing_routes
+  tags                = var.tags
 }
 
-resource "aws_eip" "nat" {
-  count  = var.single_nat_gateway ? 1 : length(var.public_subnet_cidrs)
-  domain = "vpc"
-  tags   = { Name = "${var.name}-nat-eip-${count.index}" }
-}
+#module "flow_log" {
+#  source   = "./modules/flow-log"
+#  for_each = toset([var.vpc_name])
+#
+#  create                = var.create_flow_log
+#  name                  = var.vpc_name
+#  vpc_id                = aws_vpc.this[each.key].id
+#  retention_in_days     = var.flow_log_retention_in_days
+#  traffic_type          = var.flow_log_traffic_type
+#  log_destination_type  = var.flow_log_destination_type
+#  log_destination       = var.flow_log_destination
+#  tags                  = var.tags
+#}
 
-resource "aws_nat_gateway" "this" {
-  count         = var.single_nat_gateway ? 1 : length(var.public_subnet_cidrs)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
-  tags          = { Name = "${var.name}-nat-${count.index}" }
+module "nacl" {
+  source   = "./modules/nacl"
+  for_each = toset([var.vpc_name])
 
-  depends_on = [aws_internet_gateway.this]
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
-  tags   = { Name = "${var.name}-public-rt" }
-}
-
-resource "aws_route" "public_internet" {
-  route_table_id         = aws_route_table.public.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id              = aws_internet_gateway.this.id
-}
-
-resource "aws_route_table_association" "public" {
-  count          = length(aws_subnet.public)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table" "private" {
-  count  = var.single_nat_gateway ? 1 : length(var.private_subnet_cidrs)
-  vpc_id = aws_vpc.this.id
-  tags   = { Name = "${var.name}-private-rt-${count.index}" }
-}
-
-resource "aws_route" "private_nat" {
-  count                  = length(aws_route_table.private)
-  route_table_id         = aws_route_table.private[count.index].id
-  destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.this[count.index].id
-}
-
-resource "aws_route_table_association" "private" {
-  count          = length(aws_subnet.private)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = var.single_nat_gateway ? aws_route_table.private[0].id : aws_route_table.private[count.index].id
+  name         = var.vpc_name
+  vpc_id       = aws_vpc.this[each.key].id
+  network_acls = {
+    for acl_name, acl in var.network_acls : acl_name => {
+      subnet_ids = toset(concat(
+        contains(acl.subnet_groups, "public") ?
+        values(module.subnets[each.key].public_subnet_ids) : [],
+        contains(acl.subnet_groups, "private") ?
+        values(module.subnets[each.key].private_subnet_ids) : []
+      ))
+      rules      = acl.rules
+    }
+  }
+  tags         = var.tags
 }

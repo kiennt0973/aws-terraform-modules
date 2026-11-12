@@ -1,6 +1,7 @@
 resource "aws_iam_user" "this" {
   name = var.user_name
   path = var.path
+  tags = merge(var.tags, { Name = var.user_name })
 }
 
 resource "aws_iam_access_key" "this" {

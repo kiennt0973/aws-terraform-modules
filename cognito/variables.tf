@@ -1,5 +1,17 @@
+variable "tags" {
+  description = "Additional tags applied to taggable resources."
+  type        = map(string)
+  default     = {}
+}
+
 variable "user_pool_name" {
   type = string
+}
+
+variable "domain_prefix" {
+  description = "Optional unique Cognito hosted-login domain prefix for OAuth authorization-code flows."
+  type        = string
+  default     = null
 }
 
 variable "app_client_name" {

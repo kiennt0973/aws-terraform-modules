@@ -1,12 +1,3 @@
-resource "aws_ecs_cluster" "this" {
-  name = var.cluster_name
-
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
-}
-
 resource "aws_ecs_task_definition" "this" {
   family                   = var.service_name
   requires_compatibilities = ["FARGATE"]
@@ -15,39 +6,34 @@ resource "aws_ecs_task_definition" "this" {
   memory                   = var.memory
   execution_role_arn       = var.execution_role_arn
   task_role_arn            = var.task_role_arn
+  tags                     = merge(var.tags, { Name = var.service_name })
 
-  container_definitions = jsonencode([
-    {
-      name      = var.service_name
-      image     = var.container_image
-      essential = true
-      portMappings = [
-        {
-          containerPort = var.container_port
-          protocol      = "tcp"
-        }
-      ]
-      environment = [for k, v in var.environment : { name = k, value = v }]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = var.log_group_name
-          "awslogs-region"        = data.aws_region.current.name
-          "awslogs-stream-prefix" = var.service_name
+  container_definitions = var.container_definitions
+
+  dynamic "volume" {
+    for_each = var.efs_volume == null ? [] : [var.efs_volume]
+    content {
+      name = volume.value.name
+      efs_volume_configuration {
+        file_system_id     = volume.value.file_system_id
+        root_directory     = "/"
+        transit_encryption = "ENABLED"
+        authorization_config {
+          access_point_id = volume.value.access_point_id
+          iam             = "ENABLED"
         }
       }
     }
-  ])
+  }
 }
-
-data "aws_region" "current" {}
 
 resource "aws_ecs_service" "this" {
   name            = var.service_name
-  cluster         = aws_ecs_cluster.this.id
+  cluster         = var.cluster_id
   task_definition = aws_ecs_task_definition.this.arn
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
+  tags            = merge(var.tags, { Name = var.service_name })
 
   network_configuration {
     subnets          = var.subnet_ids

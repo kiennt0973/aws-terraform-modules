@@ -1,11 +1,8 @@
-resource "aws_cloudwatch_log_group" "vpn" {
-  name              = "/aws/clientvpn/${var.name}"
-  retention_in_days = 30
-}
+module "logging" {
+  source = "./modules/logging"
 
-resource "aws_cloudwatch_log_stream" "vpn" {
-  name           = "connection-log"
-  log_group_name = aws_cloudwatch_log_group.vpn.name
+  name = var.name
+  tags = var.tags
 }
 
 resource "aws_ec2_client_vpn_endpoint" "this" {
@@ -24,33 +21,17 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
 
   connection_log_options {
     enabled               = true
-    cloudwatch_log_group   = aws_cloudwatch_log_group.vpn.name
-    cloudwatch_log_stream  = aws_cloudwatch_log_stream.vpn.name
+    cloudwatch_log_group   = module.logging.log_group_name
+    cloudwatch_log_stream  = module.logging.log_stream_name
   }
 
-  tags = { Name = var.name }
+  tags = merge(var.tags, { Name = var.name })
 }
 
-resource "aws_ec2_client_vpn_network_association" "this" {
-  count                  = length(var.subnet_ids)
-  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.this.id
-  subnet_id              = var.subnet_ids[count.index]
-}
+module "network" {
+  source = "./modules/network"
 
-resource "aws_ec2_client_vpn_authorization_rule" "this" {
-  count                  = length(var.authorized_target_cidrs)
-  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.this.id
-  target_network_cidr    = var.authorized_target_cidrs[count.index]
-  authorize_all_groups   = true
-
-  depends_on = [aws_ec2_client_vpn_network_association.this]
-}
-
-resource "aws_ec2_client_vpn_route" "this" {
-  count                  = length(var.authorized_target_cidrs)
-  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.this.id
-  destination_cidr_block = var.authorized_target_cidrs[count.index]
-  target_vpc_subnet_id   = var.subnet_ids[0]
-
-  depends_on = [aws_ec2_client_vpn_network_association.this]
+  client_vpn_endpoint_id   = aws_ec2_client_vpn_endpoint.this.id
+  subnet_ids               = var.subnet_ids
+  authorized_target_cidrs  = var.authorized_target_cidrs
 }

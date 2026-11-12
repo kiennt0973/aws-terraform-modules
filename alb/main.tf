@@ -5,23 +5,7 @@ resource "aws_lb" "this" {
   security_groups    = var.security_group_ids
   subnets            = var.subnet_ids
 
-  tags = { Name = var.name }
-}
-
-resource "aws_lb_target_group" "this" {
-  name        = "${var.name}-tg"
-  port        = var.target_port
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"
-
-  health_check {
-    path                = var.health_check_path
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    interval            = 30
-    timeout             = 5
-  }
+  tags = merge(var.tags, { Name = var.name })
 }
 
 resource "aws_lb_listener" "http" {
@@ -30,7 +14,7 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type = var.certificate_arn == null ? "forward" : "redirect"
+    type = var.certificate_arn == null ? "fixed-response" : "redirect"
 
     dynamic "redirect" {
       for_each = var.certificate_arn == null ? [] : [1]
@@ -41,7 +25,14 @@ resource "aws_lb_listener" "http" {
       }
     }
 
-    target_group_arn = var.certificate_arn == null ? aws_lb_target_group.this.arn : null
+    dynamic "fixed_response" {
+      for_each = var.certificate_arn == null ? [1] : []
+      content {
+        content_type = "text/plain"
+        message_body = "Not found"
+        status_code  = "404"
+      }
+    }
   }
 }
 
@@ -54,7 +45,11 @@ resource "aws_lb_listener" "https" {
   certificate_arn   = var.certificate_arn
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.this.arn
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not found"
+      status_code  = "404"
+    }
   }
 }

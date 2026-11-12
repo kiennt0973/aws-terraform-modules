@@ -11,6 +11,7 @@ data "aws_iam_policy_document" "assume" {
 resource "aws_iam_role" "transfer" {
   name               = "${var.name}-transfer-role"
   assume_role_policy = data.aws_iam_policy_document.assume.json
+  tags               = merge(var.tags, { Name = "${var.name}-transfer-role" })
 }
 
 data "aws_iam_policy_document" "transfer_s3" {
@@ -53,7 +54,7 @@ resource "aws_transfer_server" "this" {
     }
   }
 
-  tags = { Name = var.name }
+  tags = merge(var.tags, { Name = var.name })
 }
 
 resource "aws_transfer_user" "demo" {
