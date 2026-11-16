@@ -26,13 +26,13 @@ output "private_route_table_ids" {
   value = one([for routing in module.routing : routing.private_route_table_ids])
 }
 
-output "flow_log_id" {
-  value = one([for flow_log in module.flow_log : flow_log.id])
-}
+#output "flow_log_id" {
+#  value = one([for flow_log in module.flow_log : flow_log.id])
+#}
 
-output "flow_log_arn" {
-  value = one([for flow_log in module.flow_log : flow_log.arn])
-}
+#output "flow_log_arn" {
+#  value = one([for flow_log in module.flow_log : flow_log.arn])
+#}
 
 output "public_network_acl_id" {
   value = lookup(one([for nacl in module.nacl : nacl.network_acl_ids]), "public", null)
