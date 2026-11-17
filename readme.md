@@ -183,30 +183,31 @@ module "vpc" {
 ```
 
 Each module call creates one VPC, its public/private subnets, route tables,
-NAT gateway(s), and network ACLs. The `network_acls` input is the single place to
-configure ACL names, subnet groups, and rules. Its default creates separate
-public and private ACLs. Create another module call for each additional VPC.
+NAT gateway(s), and one network ACL shared by all its public and private subnets.
+Set `network_acl_rules` to configure the ACL's ingress and egress rules. Create
+another module call for each additional VPC.
 Optional inputs separately configure routing, flow logs, NAT behavior, and tags.
 Outputs such as `vpc_id`,
 `public_subnet_ids`, and `private_subnet_ids` return that VPC's values directly.
 
-By default, separate public and private NACLs are created. To share one NACL
-between both subnet groups, configure `network_acls` with one entry:
+`network_acl_rules` is a flat list: ingress CIDRs match packet sources and egress
+CIDRs match packet destinations. The same ordered rules apply to every associated
+subnet; a single NACL cannot enforce a different rule set based on subnet ID.
+Rule numbers must be unique per direction. Use security groups or separate NACLs
+if subnet-level policies must differ.
+
+The default allows all IPv4 traffic in both directions. To customize it:
 
 ```hcl
-network_acls = {
-  shared = {
-    subnet_groups = ["public", "private"]
-    rules = [
-      { rule_number = 100, egress = false, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
-      { rule_number = 100, egress = true, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
-    ]
-  }
-}
+network_acl_rules = [
+  { rule_number = 100, egress = false, protocol = "-1", rule_action = "allow", cidr_block = "10.0.0.0/16" },
+  { rule_number = 110, egress = false, protocol = "tcp", from_port = 443, to_port = 443, rule_action = "allow", cidr_block = "198.51.100.0/24" },
+  { rule_number = 100, egress = true, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
+]
 ```
 
-Use any number of named entries in `network_acls`; each can be associated with
-the public subnets, private subnets, or both, and can have its own rules.
+Route tables and route associations are independent of NACLs and are unchanged by
+this setting.
 
 ## Stable resource addresses
 

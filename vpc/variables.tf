@@ -98,43 +98,26 @@ variable "flow_log_destination" {
   default     = null
 }
 
-variable "network_acls" {
-  description = "Named NACL configurations. Each NACL applies to the public subnets, private subnets, or both and has its own ingress/egress rules."
-  type = map(object({
-    subnet_groups = set(string)
-    rules = list(object({
-      rule_number = number
-      egress      = bool
-      protocol    = string
-      rule_action = string
-      cidr_block  = string
-      from_port   = optional(number)
-      to_port     = optional(number)
-    }))
+variable "network_acl_rules" {
+  description = "CIDR-matched ingress and egress rules for the VPC's single shared network ACL."
+  type = list(object({
+    rule_number = number
+    egress      = bool
+    protocol    = string
+    rule_action = string
+    cidr_block  = string
+    from_port   = optional(number)
+    to_port     = optional(number)
   }))
-  default = {
-    public = {
-      subnet_groups = ["public"]
-      rules = [
-        { rule_number = 100, egress = false, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
-        { rule_number = 100, egress = true, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
-      ]
-    }
-    private = {
-      subnet_groups = ["private"]
-      rules = [
-        { rule_number = 100, egress = false, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
-        { rule_number = 100, egress = true, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
-      ]
-    }
-  }
+  default = [
+    { rule_number = 100, egress = false, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
+    { rule_number = 100, egress = true, protocol = "-1", rule_action = "allow", cidr_block = "0.0.0.0/0" },
+  ]
 
   validation {
-    condition = alltrue([
-      for acl in values(var.network_acls) :
-      length(acl.subnet_groups) > 0 &&
-      alltrue([for group in acl.subnet_groups : contains(["public", "private"], group)])
-    ])
-    error_message = "Each network ACL must include at least one valid subnet group: public or private."
+    condition = length(var.network_acl_rules) == length(distinct([
+      for rule in var.network_acl_rules : "${rule.egress}-${rule.rule_number}"
+    ]))
+    error_message = "NACL rule numbers must be unique for ingress and egress within the shared ACL."
   }
 }

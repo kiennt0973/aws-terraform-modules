@@ -56,21 +56,14 @@ module "routing" {
 #}
 
 module "nacl" {
-  source   = "./modules/nacl"
-  for_each = toset([var.vpc_name])
+  source = "./modules/nacl"
 
-  name         = var.vpc_name
-  vpc_id       = aws_vpc.this[each.key].id
-  network_acls = {
-    for acl_name, acl in var.network_acls : acl_name => {
-      subnet_ids = toset(concat(
-        contains(acl.subnet_groups, "public") ?
-        values(module.subnets[each.key].public_subnet_ids) : [],
-        contains(acl.subnet_groups, "private") ?
-        values(module.subnets[each.key].private_subnet_ids) : []
-      ))
-      rules      = acl.rules
-    }
-  }
-  tags         = var.tags
+  name   = var.vpc_name
+  vpc_id = aws_vpc.this[var.vpc_name].id
+  subnet_ids = toset(concat(
+    values(module.subnets[var.vpc_name].public_subnet_ids),
+    values(module.subnets[var.vpc_name].private_subnet_ids)
+  ))
+  rules = var.network_acl_rules
+  tags  = var.tags
 }

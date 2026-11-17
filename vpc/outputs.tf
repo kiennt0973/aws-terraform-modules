@@ -35,14 +35,14 @@ output "private_route_table_ids" {
 #}
 
 output "public_network_acl_id" {
-  value = lookup(one([for nacl in module.nacl : nacl.network_acl_ids]), "public", null)
+  value = module.nacl.network_acl_id
 }
 
 output "private_network_acl_id" {
-  value = lookup(one([for nacl in module.nacl : nacl.network_acl_ids]), "private", null)
+  value = module.nacl.network_acl_id
 }
 
 output "network_acl_ids" {
-  description = "Network ACL IDs keyed by the configured network ACL name."
-  value       = one([for nacl in module.nacl : nacl.network_acl_ids])
+  description = "The VPC's shared network ACL ID keyed by its shared name."
+  value       = { shared = module.nacl.network_acl_id }
 }
